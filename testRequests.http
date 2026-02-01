@@ -1,0 +1,8 @@
+#
+POST http://localhost:3000/keys/register HTTP/1.1
+content-type: application/json
+
+{
+    "name": "sample",
+    "tagUid": "12345"
+}
