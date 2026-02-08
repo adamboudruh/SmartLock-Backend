@@ -1,12 +1,29 @@
 # express backend
-POST http://localhost:3000/keys/register HTTP/1.1
+GET http://localhost:3000/keys HTTP/1.1
 content-type: application/json
 
-{
-    "name": "sample",
-    "tagUid": "12345"
-}
+###
 
+# database layer api
 GET http://localhost:5000/keys HTTP/1.1
 content-type: application/json
 
+###
+
+POST http://localhost:5000/keys HTTP/1.1
+content-type: application/json
+
+{
+    "name": "sample_key",
+    "tagUid": "1234567890"
+}
+
+###
+
+# remote express backend
+GET https://smartlock-backend-ezhcfahsavavfehu.centralus-01.azurewebsites.net/keys HTTP/1.1
+
+###
+
+# remote database layer api
+GET https://smartlock-db-api-cffjc8fthjfwb9hu.centralus-01.azurewebsites.net/api/keys HTTP/1.1

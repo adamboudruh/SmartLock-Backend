@@ -20,11 +20,16 @@ router.post('/register', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const resp = await axios.get(`${DB_API}/keys`);
-    res.json(resp.data);
+    console.log('Fetched keys', resp.data);
+    res.json(resp.data.data);
   } catch (err) {
     console.error('DB-API error', err?.response?.data || err.message);
     res.status(502).json({ error: 'DB API error' });
   }
+});
+
+router.get('/test', (req, res) => {
+  res.json({ message: 'Keys route test successful' });
 });
 
 module.exports = router;
