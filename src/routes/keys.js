@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-const DB_API = process.env.DB_API_URL || 'http://localhost:5000';
+const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
 
 router.post('/register', async (req, res) => {
   const { name, tagUid } = req.body;

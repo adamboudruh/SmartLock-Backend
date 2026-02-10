@@ -5,25 +5,25 @@ content-type: application/json
 ###
 
 # database layer api
-GET http://localhost:5000/keys HTTP/1.1
+GET https://localhost:7110/keys HTTP/1.1
 content-type: application/json
 
 ###
 
-POST http://localhost:5000/keys HTTP/1.1
-content-type: application/json
+# POST http://localhost:7110/keys HTTP/1.1
+# content-type: application/json
 
-{
-    "name": "sample_key",
-    "tagUid": "1234567890"
-}
+# {
+#     "name": "sample_key",
+#     "tagUid": "1234567890"
+# }
 
 ###
 
 # remote express backend
-GET https://smartlock-backend-ezhcfahsavavfehu.centralus-01.azurewebsites.net/keys HTTP/1.1
+GET https://smartlock-backend-ezhcfahsavavfehu.canadacentral-01.azurewebsites.net/keys HTTP/1.1
 
 ###
 
 # remote database layer api
-GET https://smartlock-db-api-cffjc8fthjfwb9hu.centralus-01.azurewebsites.net/api/keys HTTP/1.1
+GET https://smartlock-db-api-cffjc8fthjfwb9hu.canadacentral-01.azurewebsites.net/keys HTTP/1.1
