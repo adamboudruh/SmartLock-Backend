@@ -10,13 +10,13 @@ content-type: application/json
 
 ###
 
-# POST http://localhost:7110/keys HTTP/1.1
-# content-type: application/json
+POST http://localhost:7110/keys HTTP/1.1
+content-type: application/json
 
-# {
-#     "name": "sample_key",
-#     "tagUid": "1234567890"
-# }
+{
+    "name": "sample_key",
+    "tagUid": "1234567890"
+}
 
 ###
 
@@ -27,3 +27,25 @@ GET https://smartlock-backend-ezhcfahsavavfehu.canadacentral-01.azurewebsites.ne
 
 # remote database layer api
 GET https://smartlock-db-api-cffjc8fthjfwb9hu.canadacentral-01.azurewebsites.net/keys HTTP/1.1
+
+###
+
+# send lock command to ESP32 device via express backend
+POST http://localhost:3000/devices/lock HTTP/1.1
+content-type: application/json
+
+###
+
+# send unlock command to ESP32 device via express backend
+POST http://localhost:3000/devices/unlock HTTP/1.1
+content-type: application/json
+
+###
+
+# local database layer api
+POST https://localhost:7110/events HTTP/1.1
+content-type: application/json
+
+{
+    "eventTypeId": 1
+}

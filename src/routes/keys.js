@@ -4,12 +4,17 @@ const router = express.Router();
 
 const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
 
+const https = require('https');
+const agent = new https.Agent({
+  rejectUnauthorized: false, // Ignore self-signed certificate issues
+});
+
 router.post('/register', async (req, res) => {
   const { name, tagUid } = req.body;
   console.log('Register key', name, tagUid);
   if (!tagUid || !name) return res.status(400).json({ error: 'name and tagUid required' });
   try {
-    const resp = await axios.post(`${DB_API}/keys`, { name, tagUid });
+    const resp = await axios.post(`${DB_API}/keys`, { name, tagUid }, { httpsAgent: agent });
     return res.status(201).json(resp.data);
   } catch (err) {
     console.error('DB-API error', err?.response?.data || err.message);
@@ -19,7 +24,7 @@ router.post('/register', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const resp = await axios.get(`${DB_API}/keys`);
+    const resp = await axios.get(`${DB_API}/keys`, { httpsAgent: agent });
     console.log('Fetched keys', resp.data);
     res.json(resp.data.data);
   } catch (err) {
