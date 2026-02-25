@@ -28,7 +28,7 @@ wss.on('connection', (ws, req) => {
   wsManager.registerDevice(ws); // Register the new device connection
   
   ws.on('message', (message) => {
-    console.log('Received message from client:', message);
+    // console.log('Received message from client:', message);
     // Here you can handle messages from the client if needed
   });
 

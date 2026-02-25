@@ -10,12 +10,12 @@ content-type: application/json
 
 ###
 
-POST http://localhost:7110/keys HTTP/1.1
+POST https://localhost:7110/keys HTTP/1.1
 content-type: application/json
 
 {
-    "name": "sample_key",
-    "tagUid": "1234567890"
+    "name": "Green key",
+    "tagUid": "046AF0603E6180"
 }
 
 ###

@@ -1,15 +1,8 @@
 const express = require('express');
 const { wsManager } = require('../webSocketManager');
-const axios = require('axios');
+const { logEvent } = require('../webSocketManager');
 const { EventTypes } = require('../constants/eventTypes');
 const router = express.Router();
-
-const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
-
-const https = require('https');
-const agent = new https.Agent({
-  rejectUnauthorized: false, // Ignore self-signed certificate issues
-});
 
 function makeCommand(action) {
   return {
@@ -19,22 +12,13 @@ function makeCommand(action) {
   };
 }
 
-async function logEvent(eventTypeId) {
-  try {
-    const resp = await axios.post(`${DB_API}/events`, {
-      eventTypeId: eventTypeId,
-      // deviceId: "" // Replace with appropriate deviceId logic if applicable
-    }, { httpsAgent: agent });
-    console.log(`Logged event. eventTypeId: ${eventTypeId}`);
-    return resp.data;
-  } catch (err) {
-    console.error('Failed to log event:', err?.response?.data || err.message);
-    throw new Error('Failed to log event to DB-API');
-  }
-}
-
 router.post('/lock', async (req, res) => {
   // const { deviceId } = req.params;
+  const { isLocked } = wsManager.getState();
+  if (isLocked === true) {
+      return res.status(409).json({ error: 'Already locked' });
+  }
+
   const cmd = makeCommand('LOCK');
   console.log("Received lock command request");
   const ok = wsManager.sendCommand(cmd);
@@ -45,6 +29,11 @@ router.post('/lock', async (req, res) => {
 
 router.post('/unlock', async (req, res) => {
   // const { deviceId } = req.params;
+  const { isLocked } = wsManager.getState();
+  if (isLocked === false) {
+      return res.status(409).json({ error: 'Already unlocked' });
+  }
+
   const cmd = makeCommand('UNLOCK');
   console.log("Received unlock command request");
   const ok = wsManager.sendCommand(cmd);
