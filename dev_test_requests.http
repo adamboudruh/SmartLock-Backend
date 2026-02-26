@@ -4,13 +4,38 @@ content-type: application/json
 
 ###
 
+POST http://localhost:3000/keys/sync HTTP/1.1
+content-type: application/json
+
+###
+
 # database layer api
 GET https://localhost:7110/keys HTTP/1.1
 content-type: application/json
 
 ###
 
-POST https://localhost:7110/keys HTTP/1.1
+POST http://localhost:3000/keys/register HTTP/1.1
+content-type: application/json
+
+{
+    "name": "Yellow key",
+    "tagUid": "04AB0A613E6180"
+}
+
+###
+
+POST http://localhost:3000/keys/register HTTP/1.1
+content-type: application/json
+
+{
+    "name": "Red key",
+    "tagUid": "04C9B7603E6180"
+}
+
+###
+
+POST http://localhost:3000/keys/register HTTP/1.1
 content-type: application/json
 
 {

@@ -48,6 +48,10 @@ class WebSocketManager {
     ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data);
+        if (msg.event === 'INIT') {
+          console.log('[State] Connection initialized, syncing whitelist...');
+          this.syncWhitelist();
+        } 
         if (msg.event) {
           // Update tracked state
           if (msg.isLocked !== undefined) this.isLocked = msg.isLocked;
@@ -59,17 +63,21 @@ class WebSocketManager {
           }
         } else {
           // Plain text messages like "ESP32 Connected!"
-          // console.log('[WebSocket] Device message:', data.toString());
+          console.log('[WebSocket] Device message:', data.toString());
         }
       } catch (e) {
         // Not JSON, just log it
-        // console.log('[WebSocket] Device message:', data.toString());
+        console.log('[WebSocket] Device message:', data.toString());
       }
     });
 
     ws.on('close', () => {
       console.log('WebSocket connection closed');
-      this.client = null;
+      if (this.client === ws) { // ← only null out if it's still the active client
+        this.client   = null;
+        this.isLocked = null;
+        this.isAjar   = null;
+      }
     });
   }
 
@@ -95,6 +103,34 @@ class WebSocketManager {
       isAjar:  this.isAjar,
       online:    this.client !== null
     };
+  }
+
+  async syncWhitelist() {
+    const maxAttempts = 50; // try 50 times (5 seconds) before giving up
+    for (let i = 0; i < maxAttempts; i++) {
+        if (this.client && this.client.readyState === WebSocket.OPEN) break;
+        await new Promise(r => setTimeout(r, 100));
+        if (i === maxAttempts - 1) {
+            console.warn('[Sync] Timed out waiting for device to be ready');
+            return false;
+        }
+    }
+    try {
+        const resp = await axios.get(`${DB_API}/keys`, { httpsAgent: agent });
+        const keys = resp.data.data;
+
+        this.client.send(JSON.stringify({
+            action: 'SYNC',
+            whitelist: keys.map(k => ({ uid: k.tagUid, name: k.name })), // only send what ESP32 needs
+            ts: new Date().toISOString()
+        }));
+
+        console.log(`[Sync] Whitelist sent to device (${keys.length} keys)`);
+        return true;
+    } catch (err) {
+        // console.error('[Sync] Failed to fetch or send whitelist:', err?.response?.data || err.message);
+        return false;
+    }
   }
 }
 

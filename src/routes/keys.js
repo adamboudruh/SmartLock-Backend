@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const { wsManager } = require('../webSocketManager'); // ← add this import
 
 const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
 
@@ -15,11 +16,18 @@ router.post('/register', async (req, res) => {
   if (!tagUid || !name) return res.status(400).json({ error: 'name and tagUid required' });
   try {
     const resp = await axios.post(`${DB_API}/keys`, { name, tagUid }, { httpsAgent: agent });
+    await wsManager.syncWhitelist();
     return res.status(201).json(resp.data);
   } catch (err) {
     console.error('DB-API error', err?.response?.data || err.message);
     return res.status(502).json({ error: 'DB API error' });
   }
+});
+
+router.post('/sync', async (req, res) => {
+  const ok = await wsManager.syncWhitelist();
+  if (!ok) return res.status(503).json({ error: 'Device offline or sync failed' });
+  return res.status(200).json({ synced: true });
 });
 
 router.get('/', async (req, res) => {

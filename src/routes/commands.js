@@ -42,14 +42,4 @@ router.post('/unlock', async (req, res) => {
   return res.status(202).json({ accepted: true, commandId: cmd.commandId });
 });
 
-// router.post('/sync-whitelist', async (req, res) => {
-//   // const { deviceId } = req.params;
-//   const cmd = makeCommand('SYNC');
-//   console.log("Received sync whitelist command request");
-//   const ok = wsManager.sendCommand(cmd);
-//   if (!ok) return res.status(503).json({ error: 'device offline' });
-//   await logEvent(EventTypes.WhitelistSync); // Log whitelist sync event (eventTypeId: 8 for whitelist sync)
-//   return res.status(202).json({ accepted: true, commandId: cmd.commandId });
-// });
-
 module.exports = router;
