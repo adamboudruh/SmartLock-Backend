@@ -1,20 +1,24 @@
-# express backend
+### ============================================================
+###  SMART LOCK API - HTTP TEST REQUESTS
+###  Local Backend:    http://localhost:3000
+###  Local DB API:     https://localhost:7110
+###  Remote Backend:   https://smartlock-backend-ezhcfahsavavfehu.canadacentral-01.azurewebsites.net
+###  Remote DB API:    https://smartlock-db-api-cffjc8fthjfwb9hu.canadacentral-01.azurewebsites.net
+### ============================================================
+
+# reformatted with help of AI - see commit history for original formatting
+
+### ============================================================
+###  KEYS
+### ============================================================
+
+# Get all keys
 GET http://localhost:3000/keys HTTP/1.1
 content-type: application/json
 
 ###
 
-POST http://localhost:3000/keys/sync HTTP/1.1
-content-type: application/json
-
-###
-
-# database layer api
-GET https://localhost:7110/keys HTTP/1.1
-content-type: application/json
-
-###
-
+# Register a new key - Yellow
 POST http://localhost:3000/keys/register HTTP/1.1
 content-type: application/json
 
@@ -25,6 +29,7 @@ content-type: application/json
 
 ###
 
+# Register a new key - Red
 POST http://localhost:3000/keys/register HTTP/1.1
 content-type: application/json
 
@@ -35,6 +40,7 @@ content-type: application/json
 
 ###
 
+# Register a new key - Green
 POST http://localhost:3000/keys/register HTTP/1.1
 content-type: application/json
 
@@ -45,32 +51,100 @@ content-type: application/json
 
 ###
 
-# remote express backend
-GET https://smartlock-backend-ezhcfahsavavfehu.canadacentral-01.azurewebsites.net/keys HTTP/1.1
+# Delete a key by ID
+DELETE http://localhost:3000/keys/:id HTTP/1.1
+content-type: application/json
 
 ###
 
-# remote database layer api
-GET https://smartlock-db-api-cffjc8fthjfwb9hu.canadacentral-01.azurewebsites.net/keys HTTP/1.1
+# Force whitelist sync to ESP32
+POST http://localhost:3000/keys/sync HTTP/1.1
+content-type: application/json
+
+
+### ============================================================
+###  EVENTS
+### ============================================================
+
+# Get all events
+GET http://localhost:3000/events HTTP/1.1
+content-type: application/json
 
 ###
 
-# send lock command to ESP32 device via express backend
+# Clear all events
+DELETE http://localhost:3000/events HTTP/1.1
+content-type: application/json
+
+
+### ============================================================
+###  DEVICES
+### ============================================================
+
+# Get current device state (isLocked, isAjar, online)
+GET http://localhost:3000/devices/state HTTP/1.1
+content-type: application/json
+
+###
+
+# Send lock command to ESP32
 POST http://localhost:3000/devices/lock HTTP/1.1
 content-type: application/json
 
 ###
 
-# send unlock command to ESP32 device via express backend
+# Send unlock command to ESP32
 POST http://localhost:3000/devices/unlock HTTP/1.1
+content-type: application/json
+
+
+### ============================================================
+###  REMOTE (PRODUCTION)
+### ============================================================
+
+# Get all keys - remote backend
+GET https://smartlock-backend-ezhcfahsavavfehu.canadacentral-01.azurewebsites.net/keys HTTP/1.1
 content-type: application/json
 
 ###
 
-# local database layer api
+# Get all keys - remote DB API
+GET https://smartlock-db-api-cffjc8fthjfwb9hu.canadacentral-01.azurewebsites.net/keys HTTP/1.1
+content-type: application/json
+
+###
+
+# Get device state - remote backend
+GET https://smartlock-backend-ezhcfahsavavfehu.canadacentral-01.azurewebsites.net/devices/state HTTP/1.1
+content-type: application/json
+
+
+### ============================================================
+###  DB API DIRECT (LOCAL) - bypass express backend
+### ============================================================
+
+# Get all keys
+GET https://localhost:7110/keys HTTP/1.1
+content-type: application/json
+
+###
+
+# Get all events
+GET https://localhost:7110/events HTTP/1.1
+content-type: application/json
+
+###
+
+# Insert event directly
 POST https://localhost:7110/events HTTP/1.1
 content-type: application/json
 
 {
     "eventTypeId": 1
 }
+
+###
+
+# Clear all events directly
+DELETE https://localhost:7110/events HTTP/1.1
+content-type: application/json

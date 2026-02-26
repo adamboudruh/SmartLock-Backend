@@ -24,6 +24,18 @@ router.post('/register', async (req, res) => {
   }
 });
 
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await axios.delete(`${DB_API}/keys/${id}`, { httpsAgent: agent });
+    await wsManager.syncWhitelist(); // resync after deletion
+    return res.status(200).json({ deleted: true });
+  } catch (err) {
+    console.error('DB-API error', err?.response?.data || err.message);
+    return res.status(502).json({ error: 'DB API error' });
+  }
+});
+
 router.post('/sync', async (req, res) => {
   const ok = await wsManager.syncWhitelist();
   if (!ok) return res.status(503).json({ error: 'Device offline or sync failed' });

@@ -1,6 +1,5 @@
 const express = require('express');
-const { wsManager } = require('../webSocketManager');
-const { logEvent } = require('../webSocketManager');
+const { wsManager, logEvent } = require('../webSocketManager');
 const { EventTypes } = require('../constants/eventTypes');
 const router = express.Router();
 

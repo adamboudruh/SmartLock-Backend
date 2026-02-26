@@ -88,7 +88,8 @@ class WebSocketManager {
     if (client && client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify(command)); // Send the command as a JSON string
       console.log(`Command sent:`, command);
-      command.action == 'LOCK' ? this.isLocked = true : this.isLocked = false; // Update lock state immediately
+      if (command.action === 'LOCK')   this.isLocked = true;
+      if (command.action === 'UNLOCK') this.isLocked = false;
       return true;
     } else {
       console.error(`Device is not connected or WebSocket is not open`);
@@ -97,11 +98,12 @@ class WebSocketManager {
   }
 
   getState() {
-    console.log(`[GetState] isLocked=${this.isLocked} isAjar=${this.isAjar} online=${this.client !== null}`);
+    const online = this.client !== null && this.client.readyState === WebSocket.OPEN;
+    console.log(`[GetState] isLocked=${this.isLocked} isAjar=${this.isAjar} online=${online}`);
     return {
       isLocked: this.isLocked,
-      isAjar:  this.isAjar,
-      online:    this.client !== null
+      isAjar:   this.isAjar,
+      online
     };
   }
 

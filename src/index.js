@@ -7,14 +7,18 @@ const { createWsServer, wsManager } = require('./webSocketManager');
 
 const keysRouter = require('./routes/keys');
 const commandsRouter = require('./routes/commands');
+const eventsRouter = require('./routes/events');
+const devicesRouter = require('./routes/devices');
 
 const app = express();
 app.use(morgan('dev'));
 app.use(express.json());
 
 // route handlers
-app.use('/keys', keysRouter);            // POST /keys/register, GET /keys
-app.use('/devices', commandsRouter);     // POST /devices/:id/lock, /unlock
+app.use('/keys', keysRouter);            // 
+app.use('/devices', commandsRouter);     // 
+app.use('/devices', devicesRouter);     //
+app.use('/events', eventsRouter);   // 
 
 app.get('/', (req, res) => res.send('SmartLock-Backend running'));
 
