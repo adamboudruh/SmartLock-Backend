@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const http = require('http');
 const morgan = require('morgan');
 const WebSocket = require('ws');
@@ -13,6 +14,9 @@ const devicesRouter = require('./routes/devices');
 const app = express();
 app.use(morgan('dev'));
 app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:5173' // allow Vite dev server
+}))
 
 // route handlers
 app.use('/keys', keysRouter);            // 

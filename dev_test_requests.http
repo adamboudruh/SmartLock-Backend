@@ -123,6 +123,12 @@ content-type: application/json
 ###  DB API DIRECT (LOCAL) - bypass express backend
 ### ============================================================
 
+# Get device secret
+GET https://localhost:7110/devices/e3710331-5dcf-464e-9c6f-2d70f9fc277f/secret
+content-type: application/json
+
+###
+
 # Get all keys
 GET https://localhost:7110/keys HTTP/1.1
 content-type: application/json

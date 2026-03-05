@@ -1,15 +1,47 @@
 const WebSocket = require('ws');
 const axios = require('axios');
 const { EventTypes } = require('./constants/eventTypes');
+const crypto = require('crypto');
+const { getDeviceSecret } = require('./services/deviceService');
 
 const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
 const https = require('https');
 const agent = new https.Agent({ rejectUnauthorized: false });
 
+async function verifyAuth(message) {
+  try {
+    const parsedMsg = JSON.parse(message);
+    const { deviceId, timestamp, hmac } = parsedMsg;
+
+    const age = Date.now() - parseInt(timestamp) * 1000;
+    if (age > 3000000) return { valid: false, reason: 'Stale timestamp' };
+
+    const secretBase64 = await getDeviceSecret(deviceId); // Base64 string
+    if (!secretBase64) return { valid: false, reason: 'Unknown device' };
+
+    const secretBytes = Buffer.from(secretBase64, 'base64').toString('hex'); // ← decode to raw bytes
+
+    const expected = crypto
+      .createHmac('sha256', secretBytes)             // ← use bytes, not the string
+      .update(`${deviceId}:${timestamp}`)
+      .digest('hex');
+
+    const valid = crypto.timingSafeEqual(
+      Buffer.from(hmac, 'hex'),
+      Buffer.from(expected, 'hex')
+    );
+
+    return { valid, deviceId };
+   } catch (e) {
+    return { valid: false, reason: 'Malformed auth message' };
+  }
+}
+
 async function logEvent(eventTypeId, uid = null) {
   try {
     const resp = await axios.post(`${DB_API}/events`, {
       eventTypeId,
+      ...(this.deviceId && { deviceId: this.deviceId }),
       ...(uid && { tagUid: uid }) // ← only include if present
     }, { httpsAgent: agent });
     console.log(`[Event] Logged eventTypeId=${eventTypeId}${uid ? ` uid=${uid}` : ''}`);
@@ -31,6 +63,7 @@ const eventTypeMap = {
 class WebSocketManager {
   constructor() {
     this.client = null; // Single WebSocket instance
+    this.deviceId = null; // Track the authenticated device ID
     this.isLocked = null; // Track lock state (true for locked, false for unlocked)
     this.isAjar  = null; // Track door ajar state (true for ajar, false for closed)
   }
@@ -42,10 +75,24 @@ class WebSocketManager {
       this.client.close(); // Close existing connection if any
     }
 
-    this.client = ws; // Store the WebSocket in the map
-    console.log(`Device connected.`);
+    ws.authenticated = false; // Mark as unauthenticated until verified
 
-    ws.on('message', (data) => {
+    ws.on('message', async (data) => {
+      if (!ws.authenticated) {
+        const result = await verifyAuth(data.toString());
+        if (!result.valid) {
+          console.warn(`[Auth] Rejected: ${result.reason}`);
+          ws.close(1008, 'Unauthorized');
+          return;
+        }
+        ws.authenticated = true;
+        this.client   = ws;
+        this.deviceId = result.deviceId;
+        console.log(`[Auth] Device authenticated: ${this.deviceId}`);
+        ws.send(JSON.stringify({ action: 'AUTH_OK' })); // authenticated
+        return; // wait for the next message (INIT) before doing anything else
+      }
+
       try {
         const msg = JSON.parse(data);
         if (msg.event === 'INIT') {
@@ -75,6 +122,7 @@ class WebSocketManager {
       console.log('WebSocket connection closed');
       if (this.client === ws) { // ← only null out if it's still the active client
         this.client   = null;
+        this.deviceId = null;
         this.isLocked = null;
         this.isAjar   = null;
       }
