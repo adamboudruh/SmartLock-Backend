@@ -1,7 +1,8 @@
 const express = require('express');
-const axios = require('axios');
+// const axios = require('axios');
 const router = express.Router();
 const { wsManager } = require('../webSocketManager'); // ← add this import
+const dbAxios = require('../services/dbApiClient').dbAxios;
 
 const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
 
@@ -15,7 +16,7 @@ router.post('/register', async (req, res) => {
   console.log('Register key', name, tagUid);
   if (!tagUid || !name) return res.status(400).json({ error: 'name and tagUid required' });
   try {
-    const resp = await axios.post(`${DB_API}/keys`, { name, tagUid }, { httpsAgent: agent });
+    const resp = await dbAxios.post('/keys', { name, tagUid });
     await wsManager.syncWhitelist();
     return res.status(201).json(resp.data);
   } catch (err) {
@@ -27,7 +28,7 @@ router.post('/register', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await axios.delete(`${DB_API}/keys/${id}`, { httpsAgent: agent });
+    await dbAxios.delete(`/keys/${id}`);
     await wsManager.syncWhitelist(); // resync after deletion
     return res.status(200).json({ deleted: true });
   } catch (err) {
@@ -44,8 +45,8 @@ router.post('/sync', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const resp = await axios.get(`${DB_API}/keys`, { httpsAgent: agent });
-    console.log('Fetched keys', resp.data);
+    const resp = await dbAxios.get('/keys');
+    console.log('Fetched keys', resp.data.data);
     res.json(resp.data.data);
   } catch (err) {
     console.error('DB-API error', err?.response?.data || err.message);

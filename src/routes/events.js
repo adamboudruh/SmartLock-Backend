@@ -1,6 +1,7 @@
 const express = require('express');
-const axios = require('axios');
+// const axios = require('axios');
 const router = express.Router();
+const dbAxios = require('../services/dbApiClient').dbAxios;
 
 const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
 
@@ -11,7 +12,7 @@ const agent = new https.Agent({
 
 router.get('/', async (req, res) => {
   try {
-    const resp = await axios.get(`${DB_API}/events`, { httpsAgent: agent });
+    const resp = await dbAxios.get('/events');
     return res.json(resp.data);
   } catch (err) {
     console.error('DB-API error', err?.response?.data || err.message);
@@ -21,7 +22,7 @@ router.get('/', async (req, res) => {
 
 router.delete('/', async (req, res) => {
   try {
-    await axios.delete(`${DB_API}/events`, { httpsAgent: agent });
+    await dbAxios.delete('/events');
     return res.status(200).json({ cleared: true });
   } catch (err) {
     console.error('DB-API error', err?.response?.data || err.message);

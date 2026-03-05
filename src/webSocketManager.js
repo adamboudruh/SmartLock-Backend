@@ -1,8 +1,9 @@
 const WebSocket = require('ws');
-const axios = require('axios');
+// const axios = require('axios');
 const { EventTypes } = require('./constants/eventTypes');
 const crypto = require('crypto');
 const { getDeviceSecret } = require('./services/deviceService');
+const dbAxios = require('./services/dbApiClient').dbAxios;
 
 const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
 const https = require('https');
@@ -39,11 +40,11 @@ async function verifyAuth(message) {
 
 async function logEvent(eventTypeId, uid = null) {
   try {
-    const resp = await axios.post(`${DB_API}/events`, {
+    const resp = await dbAxios.post('/events', {
       eventTypeId,
       ...(this.deviceId && { deviceId: this.deviceId }),
       ...(uid && { tagUid: uid }) // ← only include if present
-    }, { httpsAgent: agent });
+    });
     console.log(`[Event] Logged eventTypeId=${eventTypeId}${uid ? ` uid=${uid}` : ''}`);
     return resp.data;
   } catch (err) {
@@ -166,7 +167,7 @@ class WebSocketManager {
         }
     }
     try {
-        const resp = await axios.get(`${DB_API}/keys`, { httpsAgent: agent });
+        const resp = await dbAxios.get('/keys');
         const keys = resp.data.data;
 
         this.client.send(JSON.stringify({

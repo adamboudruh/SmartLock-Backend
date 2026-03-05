@@ -29,6 +29,17 @@ content-type: application/json
 
 ###
 
+# Register a new key - Yellow-hashed
+POST http://localhost:3000/keys/register HTTP/1.1
+content-type: application/json
+
+{
+    "name": "Yellow key (hashed)",
+    "tagUid": "bd4fd20d3223a0d2cdf50643021ca08026c32690620a91a19c86640f2d265313"
+}
+
+###
+
 # Register a new key - Red
 POST http://localhost:3000/keys/register HTTP/1.1
 content-type: application/json
