@@ -3,13 +3,6 @@ const express = require('express');
 const router = express.Router();
 const dbAxios = require('../services/dbApiClient').dbAxios;
 
-const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
-
-const https = require('https');
-const agent = new https.Agent({
-  rejectUnauthorized: false,
-});
-
 router.get('/', async (req, res) => {
   try {
     const resp = await dbAxios.get('/events');

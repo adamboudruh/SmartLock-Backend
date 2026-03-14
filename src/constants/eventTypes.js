@@ -3,9 +3,10 @@ const EventTypes = Object.freeze({
   RemoteLock: 2,       // Lock initiated via a remote command
   SuccessKeyUnlock: 3,        // Unlock initiated with a key
   FailKeyUnlock: 4,           // Failed unlock attempt with a key
-  RemoteUnlock: 5,     // Unlock initiated via a remote command
-  Open: 6,             // Door open
-  Close: 7,            // Door close
+  ButtonUnlock: 5,     // Unlock initiated via a physical button
+  RemoteUnlock: 6,     // Unlock initiated via a remote command
+  Open: 7,             // Door open
+  Close: 8,            // Door close
 });
 
 module.exports = { EventTypes };

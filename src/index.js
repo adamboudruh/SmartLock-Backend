@@ -32,14 +32,15 @@ const server = http.createServer(app);
 // start WebSocket server and expose send functions
 const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws, req) => {
-  console.log('New websocket connection established');
-  wsManager.registerDevice(ws); // Register the new device connection
-  
-  ws.on('message', (message) => {
-    // console.log('Received message from client:', message);
-    // Here you can handle messages from the client if needed
-  });
-
+  console.log('[WS] New connection:', req.url);
+  if (req.url === '/device') {
+    wsManager.registerDevice(ws);
+  } else if (req.url === '/mobile') {
+    wsManager.registerMobile(ws);
+  } else {
+    console.warn('[WS] Unknown path, closing:', req.url);
+    ws.close(1008, 'Unknown endpoint');
+  }
 });
 
 server.listen(port, () => {

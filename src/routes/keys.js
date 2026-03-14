@@ -4,13 +4,6 @@ const router = express.Router();
 const { wsManager } = require('../webSocketManager'); // ← add this import
 const dbAxios = require('../services/dbApiClient').dbAxios;
 
-const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
-
-const https = require('https');
-const agent = new https.Agent({
-  rejectUnauthorized: false, // Ignore self-signed certificate issues
-});
-
 router.post('/register', async (req, res) => {
   const { name, tagUid } = req.body;
   console.log('Register key', name, tagUid);

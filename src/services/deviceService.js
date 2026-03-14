@@ -1,17 +1,15 @@
-const axios = require('axios');
+const dbAxios = require('../services/dbApiClient').dbAxios;
 const https = require('https');
 
 const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
 const agent = new https.Agent({ rejectUnauthorized: false });
 
-const secretCache = new Map();
-
 async function getDeviceSecret(deviceId) {
   try {
-    const url = `${DB_API}/devices/${deviceId}/secret`;
+    const url = `/devices/${deviceId}/secret`;
     console.log(`[DeviceService] Fetching secret from: ${url}`);
 
-    const response = await axios.get(url, { httpsAgent: agent });
+    const response = await dbAxios.get(url);
 
     console.log(`[DeviceService] Response status: ${response.status}`);
     console.log(`[DeviceService] Response body:`, response.data);
@@ -31,7 +29,7 @@ async function getDeviceSecret(deviceId) {
 
 async function getDevice(deviceId) {
   try {
-    const response = await axios.get(`${DB_API}/devices/${deviceId}`, { httpsAgent: agent });
+    const response = await dbAxios.get(`/devices/${deviceId}`, { httpsAgent: agent });
     return response.data.data;
   } catch (err) {
     if (err.response?.status === 404) return null;

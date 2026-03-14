@@ -5,10 +5,6 @@ const crypto = require('crypto');
 const { getDeviceSecret } = require('./services/deviceService');
 const dbAxios = require('./services/dbApiClient').dbAxios;
 
-const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
-const https = require('https');
-const agent = new https.Agent({ rejectUnauthorized: false });
-
 async function verifyAuth(message) {
   try {
     const parsedMsg = JSON.parse(message);
@@ -38,11 +34,11 @@ async function verifyAuth(message) {
   }
 }
 
-async function logEvent(eventTypeId, uid = null) {
+async function logEvent(eventTypeId, uid = null, deviceId = null) {
   try {
     const resp = await dbAxios.post('/events', {
       eventTypeId,
-      ...(this.deviceId && { deviceId: this.deviceId }),
+      ...(deviceId && { deviceId }),
       ...(uid && { tagUid: uid }) // ← only include if present
     });
     console.log(`[Event] Logged eventTypeId=${eventTypeId}${uid ? ` uid=${uid}` : ''}`);
@@ -54,7 +50,8 @@ async function logEvent(eventTypeId, uid = null) {
 
 // Map ESP32 event strings to EventType IDs
 const eventTypeMap = {
-  'LOCK':           EventTypes.ButtonLock,
+  'BUTTON_LOCK':           EventTypes.ButtonLock,
+  'BUTTON_UNLOCK': EventTypes.ButtonUnlock,
   'UNLOCK_SUCCESS': EventTypes.SuccessKeyUnlock,
   'FAIL_UNLOCK':    EventTypes.FailKeyUnlock,
   'DOOR_OPEN':      EventTypes.Open,
@@ -63,17 +60,73 @@ const eventTypeMap = {
 
 class WebSocketManager {
   constructor() {
-    this.client = null; // Single WebSocket instance
+    this.device = null; // ESP32 connection
+    this.mobile = null; // Mobile app connection
     this.deviceId = null; // Track the authenticated device ID
     this.isLocked = null; // Track lock state (true for locked, false for unlocked)
     this.isAjar  = null; // Track door ajar state (true for ajar, false for closed)
   }
 
+  registerConnection(ws, type) {
+    if (type === 'device') this.registerDevice(ws);
+    else if (type === 'mobile') this.registerMobile(ws);
+  }
+
+  pushStateToMobile() {
+    if (this.mobile && this.mobile.readyState === WebSocket.OPEN) {
+      this.mobile.send(JSON.stringify({ action: 'STATE_UPDATE', ...this.getState() }));
+    }
+  }
+
+  registerMobile(ws) {
+    if (this.mobile) {
+      console.log('[Mobile] Replacing existing mobile connection');
+      this.mobile.close();
+    }
+    this.mobile = ws;
+    ws.authenticated = true; // just for now
+
+    ws.on('message', async (data) => {
+      if (!ws.authenticated) {
+        const result = await verifyMobileAuth(data.toString());
+        if (!result.valid) {
+          console.warn(`[Mobile] Auth rejected: ${result.reason}`);
+          ws.close(1008, 'Unauthorized');
+          return;
+        }
+        ws.authenticated = true;
+        this.mobile = ws;
+        console.log('[Mobile] App authenticated');
+        ws.send(JSON.stringify({ action: 'AUTH_OK' }));
+        return;
+      }
+
+      try {
+        const msg = JSON.parse(data.toString());
+        console.log('[Mobile] Message:', msg);
+
+        if (msg.action === 'GET_STATE') {
+          ws.send(JSON.stringify({ action: 'STATE', ...this.getState() }));
+        } else if (msg.action === 'LOCK' || msg.action === 'UNLOCK') {
+          const sent = this.sendCommand({ action: msg.action });
+          if (!sent) ws.send(JSON.stringify({ action: 'ERROR', reason: 'Device offline' }));
+        }
+      } catch (e) {
+        console.error('[Mobile] Failed to handle message:', e.message);
+      }
+    });
+
+    ws.on('close', () => {
+      console.log('[Mobile] Connection closed');
+      if (this.mobile === ws) this.mobile = null;
+    });
+  }
+
   // Register a new device with a WebSocket connection
   registerDevice(ws) {
-    if (this.client) {
+    if (this.device) {
       console.log(`A device is already connected. Replacing old connection.`);
-      this.client.close(); // Close existing connection if any
+      this.device.close(); // Close existing connection if any
     }
 
     ws.authenticated = false; // Mark as unauthenticated until verified
@@ -87,7 +140,7 @@ class WebSocketManager {
           return;
         }
         ws.authenticated = true;
-        this.client   = ws;
+        this.device   = ws;
         this.deviceId = result.deviceId;
         console.log(`[Auth] Device authenticated: ${this.deviceId}`);
         ws.send(JSON.stringify({ action: 'AUTH_OK' })); // authenticated
@@ -104,10 +157,11 @@ class WebSocketManager {
           // Update tracked state
           if (msg.isLocked !== undefined) this.isLocked = msg.isLocked;
           if (msg.isAjar   !== undefined) this.isAjar  = msg.isAjar;
+          this.pushStateToMobile(); // push state update to mobile app
           console.log(`[State] event=${msg.event} \n\tisLocked=${this.isLocked} \n\tisAjar=${this.isAjar} \n\tkeyId=${msg.uid ?? null}`);
           const eventTypeId = eventTypeMap[msg.event];
           if (eventTypeId) {
-            logEvent(eventTypeId, msg.uid ?? null);
+            logEvent(eventTypeId, msg.uid ?? null, this.deviceId);
           }
         } else {
           // Plain text messages like "ESP32 Connected!"
@@ -121,8 +175,8 @@ class WebSocketManager {
 
     ws.on('close', () => {
       console.log('WebSocket connection closed');
-      if (this.client === ws) { // ← only null out if it's still the active client
-        this.client   = null;
+      if (this.device === ws) { // ← only null out if it's still the active device
+        this.device   = null;
         this.deviceId = null;
         this.isLocked = null;
         this.isAjar   = null;
@@ -132,13 +186,14 @@ class WebSocketManager {
 
   // Send a command to a specific device
   sendCommand(command) {
-    const client = this.client;
+    const device = this.device;
 
-    if (client && client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(command)); // Send the command as a JSON string
+    if (device && device.readyState === WebSocket.OPEN) {
+      device.send(JSON.stringify(command)); // Send the command as a JSON string
       console.log(`Command sent:`, command);
       if (command.action === 'LOCK')   this.isLocked = true;
       if (command.action === 'UNLOCK') this.isLocked = false;
+      this.pushStateToMobile(); // push state update to mobile app
       return true;
     } else {
       console.error(`Device is not connected or WebSocket is not open`);
@@ -147,7 +202,7 @@ class WebSocketManager {
   }
 
   getState() {
-    const online = this.client !== null && this.client.readyState === WebSocket.OPEN;
+    const online = this.device !== null && this.device.readyState === WebSocket.OPEN;
     console.log(`[GetState] isLocked=${this.isLocked} isAjar=${this.isAjar} online=${online}`);
     return {
       isLocked: this.isLocked,
@@ -159,7 +214,7 @@ class WebSocketManager {
   async syncWhitelist() {
     const maxAttempts = 50; // try 50 times (5 seconds) before giving up
     for (let i = 0; i < maxAttempts; i++) {
-        if (this.client && this.client.readyState === WebSocket.OPEN) break;
+        if (this.device && this.device.readyState === WebSocket.OPEN) break;
         await new Promise(r => setTimeout(r, 100));
         if (i === maxAttempts - 1) {
             console.warn('[Sync] Timed out waiting for device to be ready');
@@ -170,7 +225,7 @@ class WebSocketManager {
         const resp = await dbAxios.get('/keys');
         const keys = resp.data.data;
 
-        this.client.send(JSON.stringify({
+        this.device.send(JSON.stringify({
             action: 'SYNC',
             whitelist: keys.map(k => ({ uid: k.tagUid, name: k.name })), // only send what ESP32 needs
             ts: new Date().toISOString()
