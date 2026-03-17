@@ -50,8 +50,8 @@ async function logEvent(eventTypeId, uid = null, deviceId = null) {
 
 // Map ESP32 event strings to EventType IDs
 const eventTypeMap = {
-  'BUTTON_LOCK':           EventTypes.ButtonLock,
-  'BUTTON_UNLOCK': EventTypes.ButtonUnlock,
+  'BUTTON_LOCK':    EventTypes.ButtonLock,
+  'BUTTON_UNLOCK':  EventTypes.ButtonUnlock,
   'UNLOCK_SUCCESS': EventTypes.SuccessKeyUnlock,
   'FAIL_UNLOCK':    EventTypes.FailKeyUnlock,
   'DOOR_OPEN':      EventTypes.Open,
@@ -152,7 +152,27 @@ class WebSocketManager {
         if (msg.event === 'INIT') {
           console.log('[State] Connection initialized, syncing whitelist...');
           this.syncWhitelist();
-        } 
+        }
+        if (msg.event === 'OFFLINE_SYNC') { // occurs after INIT if ESP32 has cached events
+          try {
+            console.log(`[State] Received OFFLINE_SYNC with ${msg.events?.length || 0} events`);
+            const formatted = msg.events.map(e => ({
+                eventTypeId: eventTypeMap[e.event],
+                deviceId: this.deviceId,
+                tagUid: e.uid || null,
+                createdAt: e.ts // pass the RTC timestamp
+            }))
+
+            await dbAxios.post('/events/bulk', { events: formatted });
+            console.log(`[OfflineSync] Bulk insert successful`);
+
+            // tell ESP32 to clear its cache
+            ws.send(JSON.stringify({ action: 'SYNC_OK' }));
+          } catch (err) {
+            console.error('[OfflineSync] Failed to process offline events:', err?.response?.data || err.message);
+            return;
+          }
+        }
         if (msg.event) {
           // Update tracked state
           if (msg.isLocked !== undefined) this.isLocked = msg.isLocked;
