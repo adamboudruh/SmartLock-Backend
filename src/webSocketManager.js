@@ -3,6 +3,7 @@ const WebSocket = require('ws');
 const { EventTypes } = require('./constants/eventTypes');
 const crypto = require('crypto');
 const { getDeviceSecret } = require('./services/deviceService');
+const { toLocalISO } = require('./utils/timezone');
 const dbAxios = require('./services/dbApiClient').dbAxios;
 
 async function verifyAuth(message) {
@@ -34,13 +35,17 @@ async function verifyAuth(message) {
   }
 }
 
-async function logEvent(eventTypeId, uid = null, deviceId = null) {
+async function logEvent(eventTypeId, uid = null, deviceId = null, localTs) {
   try {
-    const resp = await dbAxios.post('/events', {
+    console.log(`[Event] Logging eventTypeId=${eventTypeId}${uid ? ` uid=${uid}` : ''}${deviceId ? ` deviceId=${deviceId}` : ''}${localTs ? ` localTs=${localTs}` : ''}`);
+    const payload = {
       eventTypeId,
       ...(deviceId && { deviceId }),
-      ...(uid && { tagUid: uid }) // ← only include if present
-    });
+      ...(uid && { tagUid: uid }),
+      createdAt: localTs // use the tz adjusted timestamp from the device
+    };
+    console.log('[Event] Payload:', payload);
+    const resp = await dbAxios.post('/events', payload);
     console.log(`[Event] Logged eventTypeId=${eventTypeId}${uid ? ` uid=${uid}` : ''}`);
     return resp.data;
   } catch (err) {
@@ -52,6 +57,7 @@ async function logEvent(eventTypeId, uid = null, deviceId = null) {
 const eventTypeMap = {
   'BUTTON_LOCK':    EventTypes.ButtonLock,
   'BUTTON_UNLOCK':  EventTypes.ButtonUnlock,
+  'AUTO_LOCK':      EventTypes.AutoLock,
   'UNLOCK_SUCCESS': EventTypes.SuccessKeyUnlock,
   'FAIL_UNLOCK':    EventTypes.FailKeyUnlock,
   'DOOR_OPEN':      EventTypes.Open,
@@ -149,9 +155,10 @@ class WebSocketManager {
 
       try {
         const msg = JSON.parse(data);
+        const localTs = toLocalISO(msg.ts || new Date().toISOString());
         if (msg.event === 'INIT') {
-          console.log('[State] Connection initialized, syncing whitelist...');
-          this.syncWhitelist();
+          console.log('[State] Connection initialized, syncing...');
+          this.syncDevice();
         }
         if (msg.event === 'OFFLINE_SYNC') { // occurs after INIT if ESP32 has cached events
           try {
@@ -160,7 +167,7 @@ class WebSocketManager {
                 eventTypeId: eventTypeMap[e.event],
                 deviceId: this.deviceId,
                 tagUid: e.uid || null,
-                createdAt: e.ts // pass the RTC timestamp
+                createdAt: toLocalISO(e.ts || new Date().toISOString()) // pass the tz adjusted RTC timestamp
             }))
 
             await dbAxios.post('/events/bulk', { events: formatted });
@@ -181,7 +188,7 @@ class WebSocketManager {
           console.log(`[State] event=${msg.event} \n\tisLocked=${this.isLocked} \n\tisAjar=${this.isAjar} \n\tkeyId=${msg.uid ?? null}`);
           const eventTypeId = eventTypeMap[msg.event];
           if (eventTypeId) {
-            logEvent(eventTypeId, msg.uid ?? null, this.deviceId);
+            logEvent(eventTypeId, msg.uid ?? null, this.deviceId, localTs);
           }
         } else {
           // Plain text messages like "ESP32 Connected!"
@@ -205,7 +212,7 @@ class WebSocketManager {
   }
 
   // Send a command to a specific device
-  sendCommand(command) {
+  async sendCommand(command) {
     const device = this.device;
 
     if (device && device.readyState === WebSocket.OPEN) {
@@ -214,6 +221,8 @@ class WebSocketManager {
       if (command.action === 'LOCK')   this.isLocked = true;
       if (command.action === 'UNLOCK') this.isLocked = false;
       this.pushStateToMobile(); // push state update to mobile app
+      const localTs = toLocalISO(new Date().toISOString());
+      await logEvent(command.action === 'LOCK' ? EventTypes.RemoteLock : EventTypes.RemoteUnlock, null, this.deviceId, localTs);
       return true;
     } else {
       console.error(`Device is not connected or WebSocket is not open`);
@@ -231,30 +240,32 @@ class WebSocketManager {
     };
   }
 
-  async syncWhitelist() {
-    const maxAttempts = 50; // try 50 times (5 seconds) before giving up
-    for (let i = 0; i < maxAttempts; i++) {
-        if (this.device && this.device.readyState === WebSocket.OPEN) break;
-        await new Promise(r => setTimeout(r, 100));
-        if (i === maxAttempts - 1) {
-            console.warn('[Sync] Timed out waiting for device to be ready');
-            return false;
-        }
+  async syncDevice() {
+    if (!this.device || this.device.readyState !== WebSocket.OPEN) {
+      console.warn('[Sync] No device connected, skipping');
+      return false;
     }
     try {
-        const resp = await dbAxios.get('/keys');
-        const keys = resp.data.data;
+        const keysResponse = await dbAxios.get('/keys');
+        const keys = keysResponse.data.data;
+
+        const deviceId = process.env.DEVICE_ID;
+        const settingsResponse = await dbAxios.get(`/devices/${deviceId}/settings`);
+        const settings = settingsResponse.data.data;
+        console.log('[Sync] Settings payload:', JSON.stringify(settings, null, 2));
 
         this.device.send(JSON.stringify({
             action: 'SYNC',
-            whitelist: keys.map(k => ({ uid: k.tagUid, name: k.name })), // only send what ESP32 needs
+            whitelist: keys.map(k => ({ uid: k.tagUid, name: k.name })),
+            settings: settings.map(s => ({ id: s.settingId, name: s.name, value: s.value })),
             ts: new Date().toISOString()
         }));
 
         console.log(`[Sync] Whitelist sent to device (${keys.length} keys)`);
+        console.log(`[Sync] Settings sent to device (${settings.length} settings)`);
         return true;
     } catch (err) {
-        // console.error('[Sync] Failed to fetch or send whitelist:', err?.response?.data || err.message);
+        console.error('[Sync] Failed to fetch or send whitelist:', err?.response?.data || err.message);
         return false;
     }
   }

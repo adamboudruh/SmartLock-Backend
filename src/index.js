@@ -15,8 +15,12 @@ const app = express();
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:5173' // allow Vite dev server
-}))
+    origin: [
+        'http://localhost:5173',       // vite web app
+        'http://localhost:8081',       // Expo dev
+        process.env.WEBAPP_URL,        // deployed web app
+    ].filter(Boolean),
+}));
 
 // route handlers
 app.use('/keys', keysRouter);            // 

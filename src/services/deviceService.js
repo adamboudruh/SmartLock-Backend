@@ -1,9 +1,6 @@
 const dbAxios = require('../services/dbApiClient').dbAxios;
 const https = require('https');
 
-const DB_API = process.env.DB_API_URL || 'https://localhost:7110';
-const agent = new https.Agent({ rejectUnauthorized: false });
-
 async function getDeviceSecret(deviceId) {
   try {
     const url = `/devices/${deviceId}/secret`;
@@ -20,20 +17,33 @@ async function getDeviceSecret(deviceId) {
       return null;
     }
 
-    console.log(`[DeviceService] Secret cached for device: ${deviceId}`);
     return secret;
   } catch (err) {
-    return null; 
+    const status = err?.response?.status || 500;
+    const details = err?.response?.data?.statusDetails  // array of strings from DB API
+                 || err?.response?.data?.title
+                 || err?.message
+                 || 'Unknown error';
+    
+    console.error('[DeviceService] Error:', details);
+    return null;
   }
 }
 
 async function getDevice(deviceId) {
   try {
-    const response = await dbAxios.get(`/devices/${deviceId}`, { httpsAgent: agent });
+    const response = await dbAxios.get(`/devices/${deviceId}`);
     return response.data.data;
   } catch (err) {
-    if (err.response?.status === 404) return null;
-    throw err;
+    console.log(err);
+    const status = err?.response?.status || 500;
+    const details = err?.response?.data?.statusDetails  // array of strings from DB API
+                 || err?.response?.data?.title
+                 || err?.message
+                 || 'Unknown error';
+    
+    console.error('[DeviceService] Error:', details);
+    return null;
   }
 }
 

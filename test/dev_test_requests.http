@@ -108,6 +108,11 @@ content-type: application/json
 POST http://localhost:3000/devices/unlock HTTP/1.1
 content-type: application/json
 
+###
+
+# Get device settings
+GET http://localhost:3000/devices/settings HTTP/1.1
+content-type: application/json
 
 ### ============================================================
 ###  REMOTE (PRODUCTION)
@@ -164,4 +169,10 @@ content-type: application/json
 
 # Clear all events directly
 DELETE https://localhost:7110/events HTTP/1.1
+content-type: application/json
+
+###
+
+# Get device settings
+GET https://localhost:7110/devices/e3710331-5dcf-464e-9c6f-2d70f9fc277f/settings HTTP/1.1
 content-type: application/json

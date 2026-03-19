@@ -6,10 +6,16 @@ const dbAxios = require('../services/dbApiClient').dbAxios;
 router.get('/', async (req, res) => {
   try {
     const resp = await dbAxios.get('/events');
-    return res.json(resp.data);
+    return res.json(resp.data.data);
   } catch (err) {
-    console.error('DB-API error', err?.response?.data || err.message);
-    return res.status(502).json({ error: 'DB API error' });
+    const status = err?.response?.status || 500;
+    const details = err?.response?.data?.statusDetails  // array of strings from DB API
+                 || err?.response?.data?.title
+                 || err?.message
+                 || 'Unknown error';
+    
+    console.error('[Events] Error:', details);
+    return res.status(status).json({ error: Array.isArray(details) ? details.join(', ') : details });
   }
 });
 
@@ -18,8 +24,14 @@ router.delete('/', async (req, res) => {
     await dbAxios.delete('/events');
     return res.status(200).json({ cleared: true });
   } catch (err) {
-    console.error('DB-API error', err?.response?.data || err.message);
-    return res.status(502).json({ error: 'DB API error' });
+    const status = err?.response?.status || 500;
+    const details = err?.response?.data?.statusDetails  // array of strings from DB API
+                 || err?.response?.data?.title
+                 || err?.message
+                 || 'Unknown error';
+    
+    console.error('[Events] Error:', details);
+    return res.status(status).json({ error: Array.isArray(details) ? details.join(', ') : details });
   }
 });
 
